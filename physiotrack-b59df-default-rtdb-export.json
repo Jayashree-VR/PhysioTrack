@@ -1,0 +1,182 @@
+{
+  "exercises": {
+    "ankle_dorsi": {
+      "joint": "Ankle",
+      "name": "Ankle Dorsiflexion",
+      "reps": 10,
+      "targetAngle": 110
+    },
+    "ankle_plantar": {
+      "joint": "Ankle",
+      "name": "Ankle Plantarflexion",
+      "reps": 10,
+      "targetAngle": 140
+    },
+    "elbow_extension": {
+      "joint": "Elbow",
+      "name": "Elbow Extension",
+      "reps": 10,
+      "targetAngle": 120
+    },
+    "elbow_flexion": {
+      "joint": "Elbow",
+      "name": "Elbow Flexion",
+      "reps": 10,
+      "targetAngle": 130
+    },
+    "knee_extension": {
+      "joint": "Knee",
+      "name": "Knee Extension",
+      "reps": 12,
+      "targetAngle": 115
+    },
+    "knee_flexion": {
+      "joint": "Knee",
+      "name": "Knee Flexion",
+      "reps": 12,
+      "targetAngle": 125
+    },
+    "wrist_extension": {
+      "joint": "Wrist",
+      "name": "Wrist Extension",
+      "reps": 15,
+      "targetAngle": 100
+    },
+    "wrist_flexion": {
+      "joint": "Wrist",
+      "name": "Wrist Flexion",
+      "reps": 15,
+      "targetAngle": 110
+    },
+    "wrist_radial_dev": {
+      "joint": "Wrist",
+      "name": "Wrist Radial Deviation",
+      "reps": 10,
+      "targetAngle": 90
+    },
+    "wrist_ulnar_dev": {
+      "joint": "Wrist",
+      "name": "Wrist Ulnar Deviation",
+      "reps": 10,
+      "targetAngle": 80
+    }
+  },
+  "progress": {
+    "pat001": {
+      "s1": {
+        "date": "2025-10-01",
+        "exerciseId": "knee_flexion",
+        "maxAngle": 118,
+        "repsDone": 10
+      },
+      "s2": {
+        "date": "2025-10-02",
+        "exerciseId": "elbow_flexion",
+        "maxAngle": 128,
+        "repsDone": 12
+      }
+    },
+    "pat002": {
+      "s1": {
+        "date": "2025-10-03",
+        "exerciseId": "ankle_dorsi",
+        "maxAngle": 105,
+        "repsDone": 11
+      },
+      "s2": {
+        "date": "2025-10-05",
+        "exerciseId": "wrist_flexion",
+        "maxAngle": 107,
+        "repsDone": 13
+      }
+    },
+    "pat003": {
+      "s1": {
+        "date": "2025-10-07",
+        "exerciseId": "wrist_radial_dev",
+        "maxAngle": 85,
+        "repsDone": 10
+      },
+      "s2": {
+        "date": "2025-10-09",
+        "exerciseId": "knee_extension",
+        "maxAngle": 112,
+        "repsDone": 12
+      }
+    },
+    "pat004": {
+      "s1": {
+        "date": "2025-10-11",
+        "exerciseId": "elbow_extension",
+        "maxAngle": 115,
+        "repsDone": 10
+      },
+      "s2": {
+        "date": "2025-10-12",
+        "exerciseId": "ankle_plantar",
+        "maxAngle": 138,
+        "repsDone": 12
+      }
+    },
+    "pat005": {
+      "s1": {
+        "date": "2025-10-13",
+        "exerciseId": "knee_flexion",
+        "maxAngle": 120,
+        "repsDone": 11
+      },
+      "s2": {
+        "date": "2025-10-14",
+        "exerciseId": "wrist_ulnar_dev",
+        "maxAngle": 75,
+        "repsDone": 9
+      }
+    }
+  },
+  "users": {
+    "doc001": {
+      "email": "doc1@demo.com",
+      "name": "Dr. Mehta",
+      "patients": [
+        "pat001",
+        "pat002",
+        "pat003"
+      ],
+      "role": "doctor"
+    },
+    "doc002": {
+      "email": "doc2@demo.com",
+      "name": "Dr. Sharma",
+      "patients": [
+        "pat004",
+        "pat005"
+      ],
+      "role": "doctor"
+    },
+    "pat001": {
+      "email": "patient1@demo.com",
+      "name": "Ananya Singh",
+      "role": "patient"
+    },
+    "pat002": {
+      "email": "patient2@demo.com",
+      "name": "Ravi Kumar",
+      "role": "patient"
+    },
+    "pat003": {
+      "email": "patient3@demo.com",
+      "name": "Priya Nair",
+      "role": "patient"
+    },
+    "pat004": {
+      "email": "patient4@demo.com",
+      "name": "Arjun Reddy",
+      "role": "patient"
+    },
+    "pat005": {
+      "email": "patient5@demo.com",
+      "name": "Sneha Iyer",
+      "role": "patient"
+    }
+  }
+}
