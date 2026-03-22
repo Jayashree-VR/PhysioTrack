@@ -23,29 +23,37 @@ export const firebaseConfig = {
   appId: "1:497761157613:web:712af6dabe175fdabea7e4"
 };
 
-// 1. Initialize
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getDatabase(app);
 
-
-// 2. Define the reference that was missing before
 export const dbRef = ref(db, "users");
 
-// 3. Helper Functions
-export function saveProgress(userId, sessionData) {
-  const sessionRef = ref(db, `progress/${userId}/${sessionData.sessionId}`);
-  return set(sessionRef, sessionData);
-}
-
-export function loadProgress(userId, callback) {
-  if (!userId) return;
-  const userProgressRef = ref(db, `progress/${userId}`);
-  onValue(userProgressRef, (snapshot) => {
+export const loadProgress = (userId, callback) => {
+  const progressRef = dbRef(db, `progress/${userId}`);
+  onValue(progressRef, (snapshot) => {
     const data = snapshot.val();
-    callback(data ? Object.values(data) : []);
+    if (data) {
+      // Converts Firebase object into an array sorted by date
+      const sessions = Object.values(data).sort((a, b) =>
+        new Date(b.dateTime) - new Date(a.dateTime)
+      );
+      callback(sessions);
+    } else {
+      callback([]);
+    }
   });
-}
+};
+
+const saveProgress = async (userId, sessionData) => {
+  const { sessionId, timeline, ...summaryData } = sessionData;
+
+  const summaryRef = dbRef(db, `progress/${userId}/${sessionId}/summary`);
+  const timelineRef = dbRef(db, `progress/${userId}/${sessionId}/timeline`);
+
+  await set(summaryRef, summaryData);
+  await set(timelineRef, timeline || []);
+};
 
 export async function fetchUsersFromDB() {
   try {
@@ -59,7 +67,6 @@ export async function fetchUsersFromDB() {
   }
 }
 
-// 4. Re-export Firebase methods with your preferred names
 export {
   createUserWithEmailAndPassword as fbCreateUser,
   signInWithEmailAndPassword as fbSignInUser,
@@ -69,6 +76,3 @@ export {
   get,
   set
 };
-
-// Start the fetch
-fetchUsersFromDB();
