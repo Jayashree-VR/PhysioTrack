@@ -114,20 +114,17 @@ const cardStyle = {
 
 export function Header({ currentUser, signOut, push }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [notifications, setNotifications] = useState([]);
   const [adminMessages, setAdminMessages] = useState([]);
 
   const currentPath = window.location.hash.replace('#', '') || '/';
-
-  // 1. Red badge logic for Doctor Prescriptions
-  const pendingCount = notifications.filter(n => !n.completed).length;
-
-  // 2. Blue badge logic for Admin Chat
-  const unreadAdminCount = adminMessages.filter(m =>
-    m.receiverId === currentUser?.id &&
-    m.status === 'unread' &&
-    m.senderRole === 'admin'
-  ).length;
+  const unreadAdminCount = adminMessages.filter(m => {
+    return (
+      m &&
+      m.status === 'unread' &&
+      m.senderRole === 'admin' &&
+      m.receiverId === currentUser?.id
+    );
+  }).length;
 
   const navLinkStyle = (isActive) => ({
     padding: '0 15px',
@@ -147,33 +144,27 @@ export function Header({ currentUser, signOut, push }) {
     cursor: 'pointer', fontSize: '0.9rem'
   };
 
-  // Logic to track prescriptions
   React.useEffect(() => {
-    if (currentUser?.role === 'patient') {
-      const prescRef = ref(db, `prescriptions/${currentUser.id}`);
-      return onValue(prescRef, (snapshot) => {
+    if (currentUser?.id && currentUser?.role === 'patient') {
+      const msgRef = ref(db, 'messages');
+      // Using onValue to ensure real-time sync
+      return onValue(msgRef, (snapshot) => {
         const data = snapshot.val();
         if (data) {
-          const list = Object.entries(data).map(([id, val]) => ({ id, ...val }));
-          setNotifications(list);
+          const list = Object.values(data).filter(m =>
+            m && (m.receiverId === currentUser.id || m.senderId === currentUser.id)
+          );
+          setAdminMessages(list);
+        } else {
+          setAdminMessages([]); // Force clear if no messages exist
         }
       });
     }
   }, [currentUser]);
 
-  // Logic to track Admin Messages
-  React.useEffect(() => {
-    if (currentUser?.role === 'patient') {
-      const msgRef = ref(db, 'messages');
-      return onValue(msgRef, (snapshot) => {
-        const data = snapshot.val();
-        if (data) {
-          const list = Object.values(data);
-          setAdminMessages(list);
-        }
-      });
-    }
-  }, [currentUser]);
+
+
+
 
   return e('header', {
     style: {
@@ -182,13 +173,13 @@ export function Header({ currentUser, signOut, push }) {
       alignItems: 'center', padding: '0 80px', height: '80px'
     }
   },
-    // Logo
+    // Logo Section
     e('div', { style: { display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }, onClick: () => push('/') },
       e('div', { style: { background: '#0d9488', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '10px' } },
         e('span', { style: { color: '#fff', fontSize: '1.2rem', fontWeight: 'bold' } }, 'V')),
       e('span', { style: { color: '#0d9488', fontSize: '1.5rem', fontWeight: '700' } }, 'PhysioTrack')),
 
-    // Navigation
+    // Nav Section
     e('div', { style: { display: 'flex', alignItems: 'center', gap: '20px' } },
       e('nav', { style: { display: 'flex', alignItems: 'center' } },
         e('a', { onClick: () => push('/'), style: navLinkStyle(currentPath === '/') }, 'Home'),
@@ -198,33 +189,25 @@ export function Header({ currentUser, signOut, push }) {
           style: navLinkStyle(currentPath.includes('/dashboard'))
         }, 'My Dashboard'),
 
-        /* 🔥 MODIFIED: Only show Messages to Patients */
         currentUser && currentUser.role === 'patient' && e('a', {
           onClick: () => push('/messages'),
           style: navLinkStyle(currentPath.includes('/messages'))
         },
           'Messages',
-
-          // BLUE BADGE
-          unreadAdminCount > 0 && e('span', {
+          // CRITICAL FIX: Only render the span if count is strictly greater than 0
+          unreadAdminCount > 0 ? e('span', {
             style: {
               background: '#3b82f6', color: '#fff', borderRadius: '10px',
               padding: '2px 8px', fontSize: '10px', fontWeight: 'bold',
-              minWidth: '18px', textAlign: 'center', border: '2px solid #fff'
+              minWidth: '18px', textAlign: 'center', border: '2px solid #fff',
+              marginLeft: '4px'
             }
-          }, unreadAdminCount),
-
-          // RED BADGE
-          pendingCount > 0 && e('span', {
-            style: {
-              background: '#ef4444', color: '#fff', borderRadius: '10px',
-              padding: '2px 8px', fontSize: '10px', fontWeight: 'bold',
-              minWidth: '18px', textAlign: 'center', border: '2px solid #fff'
-            }
-          }, pendingCount)
+          }, unreadAdminCount) : null
         )
       ),
 
+      // User Profile Dropdown
+      // User Profile Dropdown
       currentUser ?
         e('div', { style: { display: 'flex', alignItems: 'center', gap: '15px', borderLeft: '1px solid #f1f5f9', paddingLeft: '20px' } },
           e('div', { style: { position: 'relative' } },
@@ -233,13 +216,18 @@ export function Header({ currentUser, signOut, push }) {
               style: { display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', padding: '5px 10px', borderRadius: '8px', background: isMenuOpen ? '#f8fafc' : 'transparent' }
             },
               e('div', { style: { width: '32px', height: '32px', background: '#0d9488', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' } }, '👤'),
-              e('span', { style: { fontWeight: '600', fontSize: '0.9rem' } }, currentUser.name || 'User')),
+              e('span', { style: { fontWeight: '600', fontSize: '0.9rem' } }, currentUser.name || 'User')
+            ),
 
             isMenuOpen && e('div', {
-              style: { position: 'absolute', top: '50px', right: 0, width: '180px', background: '#fff', borderRadius: '8px', boxShadow: '0 8px 16px rgba(0,0,0,0.1)', border: '1px solid #f1f5f9', zIndex: 1001, padding: '4px 0' }
+              style: { position: 'absolute', top: '50px', right: 0, width: '150px', background: '#fff', borderRadius: '8px', boxShadow: '0 8px 16px rgba(0,0,0,0.1)', border: '1px solid #f1f5f9', zIndex: 1001, padding: '4px 0' }
             },
-              e('button', { style: dropdownItemStyle, onClick: () => { push('/profile'); setIsMenuOpen(false); } }, '⚙️ Profile Settings'),
-              e('button', { style: { ...dropdownItemStyle, color: '#ef4444', fontWeight: '600' }, onClick: signOut }, '↳ Log Out'))
+              // Log Out is now the sole option
+              e('button', {
+                style: { ...dropdownItemStyle, color: '#ef4444', fontWeight: '600' },
+                onClick: signOut
+              }, '↳ Log Out')
+            )
           )
         ) :
         e('button', {
@@ -248,6 +236,7 @@ export function Header({ currentUser, signOut, push }) {
         }, 'Sign In')
     ),
 
+    // Overlay for closing menu
     isMenuOpen && e('div', {
       style: { position: 'fixed', inset: 0, zIndex: 999 },
       onClick: () => setIsMenuOpen(false)
@@ -278,327 +267,148 @@ export function Footer() {
   );
 }
 
-export function EditProfile({ currentUser, push }) {
-  // 1. Initialize state with existing user data
-  const [formData, setFormData] = React.useState({
-    name: currentUser?.name || '',
-    phone: currentUser?.phone || '',
-    address: currentUser?.address || ''
-  });
-  const [isSaving, setIsSaving] = React.useState(false);
 
-  // 2. Handle the save operation
-  const handleSave = async () => {
-    setIsSaving(true);
+export function MessagesPage({ currentUser }) {
+  const [chatMessages, setChatMessages] = React.useState([]);
+  const [newMessage, setNewMessage] = React.useState("");
+
+  // Load messages
+  React.useEffect(() => {
+    if (!currentUser?.id) return;
+
+    const messagesRef = query(ref(db, 'messages'), orderByChild('timestamp'));
+
+    const unsubscribe = onValue(messagesRef, (snapshot) => {
+      const data = snapshot.val();
+
+      if (!data) {
+        setChatMessages([]);
+        return;
+      }
+
+      const list = Object.values(data).filter(m =>
+        m && (m.senderId === currentUser.id || m.receiverId === currentUser.id)
+      );
+
+      setChatMessages(
+        list.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
+      );
+    });
+
+    return () => unsubscribe();
+  }, [currentUser]);
+
+  // ✅ Mark admin → patient messages as read immediately after load
+  React.useEffect(() => {
+    if (!chatMessages.length) return;
+
+    const updates = {};
+
+    chatMessages.forEach(m => {
+      if (
+        m &&
+        m.senderRole === 'admin' &&
+        m.status === 'unread' &&
+        String(m.receiverId) === String(currentUser.id)
+      ) {
+        updates[`${m.id}/status`] = 'read';
+      }
+    });
+
+    if (Object.keys(updates).length > 0) {
+      update(ref(db, 'messages'), updates);
+    }
+  }, [chatMessages, currentUser]);
+
+
+  // Send message
+  const handleSendChat = async () => {
+    if (!newMessage.trim()) return;
+
     try {
-      // Update only the allowed fields in the user's database node
-      const userRef = ref(db, `users/${currentUser.id}`);
-      await update(userRef, {
-        name: formData.name,
-        phone: formData.phone,
-        address: formData.address
+      const msgId = Date.now().toString();
+
+      await set(ref(db, `messages/${msgId}`), {
+        id: msgId,
+        senderId: currentUser.id,
+        senderName: currentUser.name,
+        senderRole: currentUser.role, // patient
+        receiverId: 'admin', // keep consistent with admin UID if available
+        text: newMessage,
+        timestamp: new Date().toISOString(),
+        status: 'unread'
       });
 
-      alert("Profile updated successfully! ✅");
-      push('/dashboard');
-    } catch (error) {
-      console.error("Save failed:", error);
-      alert("Failed to save changes.");
-    } finally {
-      setIsSaving(false);
+      setNewMessage("");
+    } catch (err) {
+      console.error("Send failed:", err);
     }
   };
 
-  const handleChange = (field, value) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-  };
+  return React.createElement('div', { style: { padding: '40px', maxWidth: '800px', margin: '0 auto' } },
+    React.createElement('h2', null, 'Support Chat'),
 
-  return e('div', { style: { padding: '40px', maxWidth: '800px', margin: '0 auto' } },
-    e('h1', { style: { color: theme.colors.primaryDark, marginBottom: '10px' } }, 'Edit Profile'),
-    e('p', { style: { color: theme.colors.textLight, marginBottom: '30px' } }, 'Update your personal information'),
+    React.createElement('div', {
+      style: {
+        background: '#fff',
+        borderRadius: '12px',
+        border: '1px solid #f1f5f9',
+        height: '500px',
+        display: 'flex',
+        flexDirection: 'column'
+      }
+    },
 
-    e('div', { style: { background: '#fff', padding: '40px', borderRadius: theme.radius, boxShadow: theme.shadows.lg } },
-      // Avatar Section
-      e('div', { style: { display: 'flex', alignItems: 'center', gap: '20px', marginBottom: '30px', paddingBottom: '30px', borderBottom: `1px solid ${theme.colors.border}` } },
-        e('div', { style: { width: '80px', height: '80px', background: theme.colors.gradient, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '2rem' } }, '👤'),
-        e('div', null,
-          e('h3', { style: { margin: 0 } }, formData.name || 'User'),
-          e('p', { style: { margin: 0, color: theme.colors.textLight } }, currentUser?.email)
+      React.createElement('div', {
+        style: {
+          flex: 1,
+          padding: '20px',
+          overflowY: 'auto',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '10px'
+        }
+      },
+
+        chatMessages.map(m =>
+          React.createElement('div', {
+            key: m.id,
+            style: {
+              alignSelf: m.senderId === currentUser.id ? 'flex-end' : 'flex-start',
+              background: m.senderId === currentUser.id ? '#0d9488' : '#f1f5f9',
+              color: m.senderId === currentUser.id ? '#fff' : '#1e293b',
+              padding: '10px 15px',
+              borderRadius: '12px',
+              maxWidth: '70%'
+            }
+          }, m.text)
         )
       ),
 
-      // Form Grid
-      e('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' } },
-        // Name
-        e('div', null,
-          e('label', { style: { display: 'block', marginBottom: '8px', fontWeight: '600' } }, 'Full Name'),
-          e('input', {
-            style: inputStyle,
-            value: formData.name,
-            onChange: (ev) => handleChange('name', ev.target.value)
-          })
-        ),
-        // Email (Read Only for security)
-        e('div', null,
-          e('label', { style: { display: 'block', marginBottom: '8px', fontWeight: '600', color: '#94a3b8' } }, 'Email (Not Editable)'),
-          e('input', {
-            style: { ...inputStyle, background: '#f8fafc', cursor: 'not-allowed', color: '#64748b' },
-            value: currentUser?.email,
-            readOnly: true
-          })
-        ),
-        // Phone
-        e('div', null,
-          e('label', { style: { display: 'block', marginBottom: '8px', fontWeight: '600' } }, 'Phone Number'),
-          e('input', {
-            style: inputStyle,
-            value: formData.phone,
-            placeholder: 'Enter your phone number',
-            onChange: (ev) => handleChange('phone', ev.target.value)
-          })
-        ),
-        // Address
-        e('div', null,
-          e('label', { style: { display: 'block', marginBottom: '8px', fontWeight: '600' } }, 'Address'),
-          e('input', {
-            style: inputStyle,
-            value: formData.address,
-            placeholder: 'Enter your address',
-            onChange: (ev) => handleChange('address', ev.target.value)
-          })
-        )
-      ),
+      React.createElement('div', { style: { padding: '20px', display: 'flex', gap: '10px' } },
 
-      e('div', { style: { display: 'flex', gap: '15px', marginTop: '30px' } },
-        e('button', {
-          style: { ...tealBtn, opacity: isSaving ? 0.7 : 1 },
-          onClick: handleSave,
-          disabled: isSaving
-        }, isSaving ? 'Saving...' : 'Save Changes 💾'),
-        e('button', { style: outlineBtn, onClick: () => push('/dashboard') }, 'Cancel')
+        React.createElement('input', {
+          value: newMessage,
+          onChange: (e) => setNewMessage(e.target.value),
+          placeholder: 'Type a message...',
+          style: { flex: 1, padding: '10px', borderRadius: '8px', border: '1px solid #ddd' }
+        }),
+
+        React.createElement('button', {
+          onClick: handleSendChat,
+          style: {
+            background: '#0d9488',
+            color: '#fff',
+            border: 'none',
+            padding: '10px 20px',
+            borderRadius: '8px'
+          }
+        }, 'Send')
       )
     )
   );
 }
 
-export function MessagesPage({ currentUser }) {
-  const isDoctor = currentUser?.role === 'doctor';
-
-  // Doctors default to 'admin' tab; Patients default to 'doctor' tab
-  const [activeTab, setActiveTab] = React.useState(isDoctor ? 'admin' : 'doctor');
-  const [notifications, setNotifications] = React.useState([]);
-  const [chatMessages, setChatMessages] = React.useState([]);
-  const [newMessage, setNewMessage] = React.useState("");
-
-  // Check if there are unread messages specifically from the Admin
-  const hasUnreadAdmin = chatMessages.some(m => m.senderRole === 'admin' && m.status === 'unread');
-
-  // 1. Fetch Doctor Notifications (Only for Patients)
-  React.useEffect(() => {
-    if (currentUser?.role === 'patient') {
-      const prescRef = ref(db, `prescriptions/${currentUser.id}`);
-      return onValue(prescRef, (snapshot) => {
-        const data = snapshot.val();
-        if (data) {
-          const list = Object.entries(data).map(([id, val]) => ({ id, ...val }));
-          setNotifications(list.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt)));
-        }
-      });
-    }
-  }, [currentUser]);
-
-  // 2. Fetch Admin Chat Messages
-  React.useEffect(() => {
-    const messagesRef = query(ref(db, 'messages'), orderByChild('timestamp'));
-    return onValue(messagesRef, (snapshot) => {
-      const data = snapshot.val();
-      if (data) {
-        const list = Object.values(data).filter(m =>
-          (m.senderId === currentUser.id) || (m.receiverId === currentUser.id)
-        );
-        setChatMessages(list.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp)));
-      }
-    });
-  }, [currentUser]);
-
-  // 3. EFFECT: Mark Admin messages as read when the Admin tab is opened
-  React.useEffect(() => {
-    if (activeTab === 'admin' && hasUnreadAdmin) {
-      const updates = {};
-      chatMessages.forEach(m => {
-        if (m.senderRole === 'admin' && m.status === 'unread') {
-          updates[`messages/${m.id}/status`] = 'read';
-        }
-      });
-      if (Object.keys(updates).length > 0) {
-        update(ref(db), updates);
-      }
-    }
-  }, [activeTab, hasUnreadAdmin, chatMessages]);
-
-  const handleToggleTask = async (taskId, isDone) => {
-    try {
-      await update(ref(db, `prescriptions/${currentUser.id}/${taskId}`), {
-        completed: isDone,
-        completedAt: isDone ? new Date().toISOString() : null
-      });
-    } catch (err) { console.error("Update failed:", err); }
-  };
-
-  const handleSendChat = async () => {
-    if (!newMessage.trim()) return;
-    try {
-      const msgId = Date.now().toString();
-      await set(ref(db, `messages/${msgId}`), {
-        id: msgId,
-        senderId: currentUser.id,
-        senderName: currentUser.name,
-        senderRole: currentUser.role,
-        text: newMessage,
-        timestamp: new Date().toISOString(),
-        status: "unread"
-      });
-      setNewMessage("");
-    } catch (err) { console.error("Send failed:", err); }
-  };
-
-  const containerStyle = { padding: '40px 80px', maxWidth: '1000px', margin: '0 auto' };
-  const tabButtonStyle = (isActive) => ({
-    padding: '12px 24px',
-    cursor: 'pointer',
-    border: 'none',
-    background: isActive ? '#0d9488' : '#f1f5f9',
-    color: isActive ? '#fff' : '#64748b',
-    borderRadius: '10px',
-    fontWeight: '600',
-    transition: 'all 0.2s ease',
-    position: 'relative'
-  });
-
-  return e('div', { style: containerStyle },
-    e('h2', { style: { marginBottom: '24px', color: '#1e293b', fontWeight: '700' } }, 'Messages & Notifications'),
-
-    // Toggle Tabs
-    e('div', { style: { display: 'flex', gap: '12px', marginBottom: '32px', background: '#f8fafc', padding: '6px', borderRadius: '12px', width: 'fit-content' } },
-      // Condition: Doctors should NOT see Doctor Notifications tab
-      !isDoctor && e('button', {
-        style: tabButtonStyle(activeTab === 'doctor'),
-        onClick: () => setActiveTab('doctor')
-      }, 'Doctor Notifications'),
-
-      e('button', {
-        style: tabButtonStyle(activeTab === 'admin'),
-        onClick: () => setActiveTab('admin')
-      },
-        'Chat with Admin',
-        hasUnreadAdmin && activeTab !== 'admin' && e('span', {
-          style: {
-            position: 'absolute',
-            top: '-5px',
-            right: '-5px',
-            background: '#3b82f6',
-            color: 'white',
-            width: '18px',
-            height: '18px',
-            borderRadius: '50%',
-            fontSize: '10px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            border: '2px solid white',
-            boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
-          }
-        }, '!')
-      )
-    ),
-
-    // Content Switching Logic
-    activeTab === 'doctor' && !isDoctor ?
-      e('div', { style: { display: 'grid', gap: '16px' } },
-        notifications.length === 0 ?
-          e('div', { style: { textAlign: 'center', padding: '40px', color: '#94a3b8' } }, 'No notifications from your doctor yet.') :
-          notifications.map(n => e('div', {
-            key: n.id,
-            style: { padding: '20px', background: '#fff', borderRadius: '16px', border: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }
-          },
-            e('div', {},
-              // Fixed: Includes Joint name and Exercise
-              e('h4', { style: { color: '#0d9488', margin: 0, fontSize: '1.1rem' } },
-                `${n.joint || 'General'}: ${n.exercise}`
-              ),
-              e('p', { style: { margin: '8px 0 0', fontSize: '0.9rem', color: '#64748b' } },
-                `Reps: ${n.reps} | Target Angle: ${n.targetAngle}°`
-              )
-            ),
-            e('button', {
-              onClick: () => handleToggleTask(n.id, !n.completed),
-              style: {
-                background: n.completed ? '#f1f5f9' : '#0d9488',
-                color: n.completed ? '#64748b' : '#fff',
-                border: 'none', padding: '10px 20px', borderRadius: '8px', cursor: 'pointer', fontWeight: '600'
-              }
-            }, n.completed ? 'Completed ✓' : 'Mark Done')
-          ))
-      )
-      :
-      // Chat Section (Displayed for Doctors or when Patients select Admin tab)
-      e('div', { style: { background: '#fff', borderRadius: '20px', border: '1px solid #f1f5f9', height: '350px', display: 'flex', flexDirection: 'column', overflow: 'hidden' } },
-        e('div', { style: { flex: 1, padding: '24px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px', background: '#fafbfb' } },
-          chatMessages.length === 0 ?
-            e('div', { style: { textAlign: 'center', color: '#94a3b8', marginTop: '20px' } }, 'Start a conversation with the administrator.') :
-            chatMessages.map(m => e('div', {
-              key: m.id,
-              style: {
-                alignSelf: m.senderId === currentUser.id ? 'flex-end' : 'flex-start',
-                background: m.senderId === currentUser.id ? '#0d9488' : '#fff',
-                color: m.senderId === currentUser.id ? '#fff' : '#1e293b',
-                padding: '12px 18px',
-                borderRadius: '15px',
-                border: m.senderId === currentUser.id ? 'none' : '1px solid #e2e8f0',
-                maxWidth: '55%'
-              }
-            }, m.text))
-        ),
-        e('div', { style: { padding: '20px', background: '#fff', borderTop: '1px solid #f1f5f9', display: 'flex', gap: '12px' } },
-          e('input', {
-            value: newMessage,
-            onChange: (ev) => setNewMessage(ev.target.value),
-            onKeyPress: (ev) => ev.key === 'Enter' && handleSendChat(),
-            placeholder: 'Type your message...',
-            style: { flex: 1, padding: '14px', borderRadius: '12px', border: '1px solid #e2e8f0' }
-          }),
-          e('button', {
-            onClick: handleSendChat,
-            style: { background: '#0d9488', color: '#fff', border: 'none', padding: '0 24px', borderRadius: '12px', cursor: 'pointer' }
-          }, 'Send')
-        )
-      )
-  );
-}
-
-
-// export function Notifications({ push }) {
-//   const alerts = [
-//     { id: 1, doctor: "Dr. Smith", type: "Prescription", text: "Increased Elbow Extension reps to 15.", date: "Today" },
-//     { id: 2, doctor: "Dr. Smith", type: "Comment", text: "Great improvement on your Wrist Flexion angle!", date: "Yesterday" }
-//   ];
-
-//   return e('div', { style: { padding: '40px', maxWidth: '800px', margin: '0 auto' } },
-//     e('h1', { style: { color: theme.colors.primaryDark, marginBottom: '30px' } }, 'Notifications'),
-
-//     alerts.map(item => e('div', {
-//       key: item.id,
-//       style: { background: '#fff', padding: '20px', borderRadius: '12px', marginBottom: '15px', borderLeft: `5px solid ${theme.colors.primary}`, boxShadow: theme.shadows.sm }
-//     },
-//       e('div', { style: { display: 'flex', justifyContent: 'space-between', marginBottom: '8px' } },
-//         e('span', { style: { fontWeight: '700', color: theme.colors.primaryDark } }, item.type),
-//         e('span', { style: { fontSize: '0.8rem', color: theme.colors.textLight } }, item.date)
-//       ),
-//       e('p', { style: { margin: '5px 0', color: theme.colors.text } }, item.text),
-//       e('p', { style: { fontSize: '0.85rem', color: theme.colors.textLight, fontStyle: 'italic' } }, `- ${item.doctor}`)
-//     ))
-//   );
-// }
 
 export function ContactUs() {
   const cardStyle = { background: '#fff', padding: '20px', borderRadius: '12px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '15px', border: `1px solid ${theme.colors.border}` };
@@ -810,10 +620,10 @@ export function SignInPage({ signIn, push }) {
           style: { color: '#2563eb', fontSize: '0.9rem', textDecoration: 'underline', cursor: 'pointer' },
           onClick: () => alert('Reset link sent to email.')
         }, 'Forgot password?'),
-        e('p', { style: { marginTop: '15px', fontSize: '0.9rem', color: theme.colors.textLight } },
-          "New here? ",
-          e('a', { onClick: () => push('/signup'), style: { color: theme.colors.primary, cursor: 'pointer', fontWeight: '700' } }, 'Create account')
-        )
+        // e('p', { style: { marginTop: '15px', fontSize: '0.9rem', color: theme.colors.textLight } },
+        //   "New here? ",
+        //   e('a', { onClick: () => push('/signup'), style: { color: theme.colors.primary, cursor: 'pointer', fontWeight: '700' } }, 'Create account')
+        // )
       )
     ),
     push
