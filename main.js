@@ -1,11 +1,20 @@
 const { useState, useEffect } = React;
-import { useHashRoute, loadAppState, saveAppState, SAMPLE_EXERCISES } from './utils.js';
-import { signOut as firebaseSignOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-import { ref, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
-import { db } from "./firebase_config.js";
+import { useHashRoute, loadAppState, saveAppState } from './utils.js';
+import {
+  auth,
+  db,
+  fetchUsersFromDB
+} from './firebase_config.js'; // Ensure this matches your filename exactly
+import {
+  onAuthStateChanged,
+  signOut as firebaseSignOut
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import {
+  ref,
+  onValue
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
-
-import { Header, Footer, Home, About, ContactUs, EditProfile, SignInPage, SignUpPage, MessagesPage } from './pages.js';
+import { Header, Footer, Home, About, ContactUs, SignInPage, SignUpPage, MessagesPage } from './pages.js';
 import { DoctorDashboard } from './dashboard_doctor.js';
 import { PatientDashboard } from './dashboard_patient.js';
 import { AdminDashboard } from './admin.js';
@@ -15,60 +24,77 @@ const e = React.createElement;
 function App() {
   const { route, push } = useHashRoute();
   const [state, setState] = useState(() => loadAppState());
+
+  // Derived state
   const currentUser = state.users.find(u => u.id === state.currentUserId) || null;
 
-  // Protect Dashboard Route
+  // 1. AUTH OBSERVER: Sync Firebase Auth with React State
   useEffect(() => {
-    if (!currentUser && route === '/dashboard') {
-      push('/signin');
-    }
-  }, [currentUser, route]);
+    const unsubscribeAuth = onAuthStateChanged(auth, (firebaseUser) => {
+      if (firebaseUser) {
+        // User is logged in, ensure we have the latest user list from DB
+        fetchUsersFromDB();
 
-  // Sync state changes to localStorage
-  useEffect(() => {
-    saveAppState(state);
-  }, [state]);
+        // If the local state doesn't know who the user is yet, update it
+        if (!state.currentUserId) {
+          setState(prev => ({ ...prev, currentUserId: firebaseUser.uid }));
+        }
+      } else {
+        // User is logged out
+        setState(prev => ({ ...prev, currentUserId: null }));
+        if (route === '/dashboard') push('/signin');
+      }
+    });
 
-  // --- NEW: Firebase Real-time Listener ---
-  // This ensures messages and users are always up to date
+    return () => unsubscribeAuth();
+  }, [route]);
+
   useEffect(() => {
+    if (!currentUser) return;
+
     const messagesRef = ref(db, 'messages');
+    const progressRef = ref(db, 'progress');
 
-    // Listen for messages
-    const unsubscribeMessages = onValue(messagesRef, (snapshot) => {
+    // Sync Messages
+    const unsubMessages = onValue(messagesRef, (snapshot) => {
       const data = snapshot.val();
       const messageList = data
         ? Object.entries(data).map(([id, val]) => ({ id, ...val }))
         : [];
 
-      setState(prev => ({
-        ...prev,
-        messages: messageList
-      }));
+      setState(prev => ({ ...prev, messages: messageList }));
     });
 
-    // Cleanup listeners when app closes
-    return () => unsubscribeMessages();
-  }, []);
+    const unsubProgress = onValue(progressRef, (snapshot) => {
+      const data = snapshot.val() || {};
+      setState(prev => ({ ...prev, progress: data }));
+    });
 
-  // --- Sign-In Logic ---
+    return () => {
+      unsubMessages();
+      unsubProgress();
+    };
+  }, [currentUser?.id]);
+
+  useEffect(() => {
+    saveAppState(state);
+  }, [state]);
+
+  // --- Actions ---
   async function signIn(user, allUsers) {
     if (!user || !user.id) return;
-    const newState = { ...state, users: allUsers, currentUserId: user.id };
-    setState(newState);
+    setState(prev => ({ ...prev, users: allUsers, currentUserId: user.id }));
   }
 
-  // --- Sign-Out Logic ---
   function signOut() {
-    if (window.firebaseAuth) {
-      firebaseSignOut(window.firebaseAuth).catch(console.error);
-    }
-    const loggedOutState = { ...state, currentUserId: null };
-    setState(loggedOutState);
-    push('/signin');
+    firebaseSignOut(auth)
+      .then(() => {
+        setState(prev => ({ ...prev, currentUserId: null }));
+        push('/signin');
+      })
+      .catch(console.error);
   }
 
-  // --- Session Logic ---
   function addSessionForPatient(pid, session) {
     setState(s => ({
       ...s,
@@ -79,14 +105,7 @@ function App() {
     }));
   }
 
-  // Inside your main app's initialization
-  const progressRef = ref(db, 'progress');
-  onValue(progressRef, (snapshot) => {
-    const data = snapshot.val();
-    // Update your global 'state' here so Dr. Ram receives the 'progress' object
-    updateState({ progress: data });
-  });
-
+  // --- Rendering ---
   return e('div', {
     style: { display: 'flex', flexDirection: 'column', minHeight: '100vh', background: '#fcfcfd' }
   },
@@ -97,8 +116,6 @@ function App() {
       route === '/contact' && e(ContactUs),
       route === '/signin' && e(SignInPage, { signIn, push }),
       route === '/signup' && e(SignUpPage, { push, signIn }),
-      route === '/profile' && e(EditProfile, { currentUser, push }),
-      // route === '/notifications' && e(Notifications, { push }),
       route === '/messages' && e(MessagesPage, { currentUser }),
       route === '/dashboard' && currentUser && (
         currentUser.role === 'admin'
@@ -106,11 +123,13 @@ function App() {
           : currentUser.role === 'doctor'
             ? e(DoctorDashboard, { state, currentUser, signOut })
             : e(PatientDashboard, { state, currentUser, addSessionForPatient, signOut })
-      )),
+      )
+    ),
     e(Footer)
   );
 }
 
+// Render the App
 const container = document.getElementById('root');
 const root = ReactDOM.createRoot(container);
 root.render(e(App));
