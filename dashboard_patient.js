@@ -102,7 +102,7 @@ function ActiveExerciseView({ exercise, currentUser, onStop }) {
     const [liveAngle, setLiveAngle] = useState(0);
     const [currentSessionId, setCurrentSessionId] = useState(null);
 
-    const ESP32_IP = "10.242.63.136";
+    const ESP32_IP = "10.59.144.136";
 
     useEffect(() => {
         let interval;
